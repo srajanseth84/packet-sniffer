@@ -1,7 +1,7 @@
 # packet-sniffer
 
 Team Member's: 
-Sajal
-Srajan
-Mukul
-Kuldeep
+Sajal Sharma
+Srajan Seth
+Mukul Singhal
+Kuldeep Yadav

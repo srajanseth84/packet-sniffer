@@ -3,7 +3,6 @@ import argparse
 import time
 from itertools import count
 from socket import ntohs, socket, PF_PACKET, SOCK_RAW
-import os
 
 import protocols
 
@@ -199,7 +198,6 @@ def sniff(interface: str, displaydata: bool):
         if reply.lower() == 'y':
             SniffToScreen.file.close()
             print('\n[>>>] Sniffer terminated. Packets saved to file.')
-            os.system('cat packet-sniffer.log | grep TCP')
         raise SystemExit('Aborting packet capture...')
 
 

@@ -7,7 +7,6 @@ from socket import ntohs, socket, PF_PACKET, SOCK_RAW
 import protocols
 
 i = ' ' * 4  # Basic indentation level
-file = open('packet-sniffer.log', 'w')
 
 class PacketSniffer(object):
     def __init__(self, interface: str):
@@ -58,10 +57,14 @@ class OutputMethod(abc.ABC):
 
 
 class SniffToScreen(OutputMethod):
-    def __init__(self, subject, *, displaydata: bool):
+    def __init__(self, subject, *, displaydata: bool,reply: str):
         super().__init__(subject)
         self.p = None
         self.display_data = displaydata
+        self.reply = reply
+        if self.reply == 'y':
+            file = open('packet-sniffer.log', 'w')
+            self.file = file
 
     def update(self, packet):
         self.p = packet
@@ -71,7 +74,7 @@ class SniffToScreen(OutputMethod):
 
     def _display_output_header(self):
         local_time = time.strftime('%H:%M:%S', time.localtime())
-        print('[>] Packet #{0} at {1}:'.format(self.p.packet_num, local_time),file=file)
+        print('[>] Packet #{0} at {1}:'.format(self.p.packet_num, local_time),file=self.file)
 
     def _display_packet_info(self):
         for proto in self.p.protocol_queue:
@@ -79,66 +82,71 @@ class SniffToScreen(OutputMethod):
 
     def _display_ethernet_data(self):
         print('{0}[+] MAC {1:.>23} -> {2}'.format(i, self.p.ethernet.source,
-                                                  self.p.ethernet.dest),file=file)
+                                                  self.p.ethernet.dest),file=self.file)
 
     def _display_ipv4_data(self):
         print('{0}[+] IPv4 {1:.>22} -> {2: <15} | '
               'PROTO: {3} TTL: {4}'.format(i, self.p.ipv4.source,
                                            self.p.ipv4.dest,
                                            self.p.ipv4.encapsulated_proto,
-                                           self.p.ipv4.ttl),file=file)
+                                           self.p.ipv4.ttl),file=self.file)
 
     def _display_ipv6_data(self):
         print('{0}[+] IPv6 {1:.>22} -> {2: <15}'.format(i, self.p.ipv6.source,
-                                                        self.p.ipv6.dest),file=file)
+                                                        self.p.ipv6.dest), file=self.file)
 
     def _display_arp_data(self):
         if self.p.arp.oper == 1:  # ARP Request
             print('{0}[+] ARP Who has {1: >13} ? '
                   '-> Tell {2}'.format(i, self.p.arp.target_proto,
-                                       self.p.arp.source_proto),file=file)
+                                       self.p.arp.source_proto),file=self.file)
         else:                     # ARP Reply
             print('{0}[+] ARP {1:.>23} -> '
                   'Is at {2}'.format(i, self.p.arp.source_proto,
-                                     self.p.arp.source_hdwr),file=file)
+                                     self.p.arp.source_hdwr),file=self.file)
 
     def _display_tcp_data(self):
         print('{0}[+] TCP {1:.>23} -> {2: <15} | '
               'Flags: {3} > {4}'.format(i, self.p.tcp.sport,
                                         self.p.tcp.dport,
                                         self.p.tcp.flag_hex,
-                                        self.p.tcp.flag_txt),file=file)
+                                        self.p.tcp.flag_txt),file=self.file)
 
     def _display_udp_data(self):
         print('{0}[+] UDP {1:.>23} -> {2}'.format(i, self.p.udp.sport,
-                                                  self.p.udp.dport),file=file)
+                                                  self.p.udp.dport),file=self.file)
 
     def _display_icmp_data(self):
         print('{0}[+] ICMP {1:.>22} -> {2: <15} | '
               'Type: {3}'.format(i, self.p.ipv4.source,
                                  self.p.ipv4.dest,
-                                 self.p.icmp.type_txt),file=file)
+                                 self.p.icmp.type_txt),file=self.file)
 
     def _display_packet_contents(self):
         if self.display_data is True:
-            print('{0}[+] DATA:'.format(i),file=file)
+            print('{0}[+] DATA:'.format(i),file=self.file)
             data = self.p.data.decode(errors='ignore').\
                 replace('\n', '\n{0}'.format(i*2))
-            print('{0}{1}'.format(i, data),file=file)
+            print('{0}{1}'.format(i, data),file=self.file)
 
 
 def sniff(interface: str, displaydata: bool):
     """Control the flow of execution of the Packet Sniffer tool."""
 
     packet_sniffer = PacketSniffer(interface)
+    print('\n Do you want to store the captured packets in a file? [y/n]')
+    reply = input()
+
     to_screen = SniffToScreen(subject=packet_sniffer,
-                              displaydata=displaydata)
+                              displaydata=displaydata,
+                              reply=reply.lower())
     try:
         print('\n[>>>] Sniffer initialized. Waiting for incoming packets. '
               'Press Ctrl-C to abort...\n')
         packet_sniffer.execute()
     except KeyboardInterrupt:
-        file.close()
+        if reply.lower() == 'y':
+            SniffToScreen.file.close()
         raise SystemExit('Aborting packet capture...')
 
 
